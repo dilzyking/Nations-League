@@ -1,138 +1,237 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Fox Cricket</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-  <meta name="referrer" content="no-referrer"/>
-  
-  <!-- Plyr CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Live Player</title>
 
-  <!-- HLS.js -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
 
-  <!-- Plyr JS -->
-  <script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.polyfilled.js"></script>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-  <style>
-    body {
-      background-color: #000;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-    html, body {
-      height: 100%;
-      width: 100%;
-    }
-    .video-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
-    .plyr {
-      height: 100%;
-      width: 100%;
-    }
-  </style>
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
+}
+
+.player-container {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.plyr {
+  width: 100%;
+  height: 100%;
+  --plyr-color-main: #e50914;
+  --plyr-video-background: #000;
+  --plyr-menu-background: #151515;
+  --plyr-menu-color: #fff;
+  --plyr-control-radius: 5px;
+}
+
+.plyr--video .plyr__controls {
+  padding: 15px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,.9));
+}
+
+.plyr__video-wrapper {
+  height: 100%;
+  background: #000;
+}
+
+.plyr__video-wrapper video {
+  object-fit: contain;
+}
+
+.status {
+  position: absolute;
+  z-index: 5;
+  top: 15px;
+  left: 15px;
+  color: #fff;
+  background: rgba(20,20,20,.8);
+  border: 1px solid #333;
+  padding: 7px 11px;
+  border-radius: 5px;
+  font: 12px Arial, sans-serif;
+  pointer-events: none;
+}
+
+.status::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #e50914;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+
+@media (orientation: portrait) {
+  .plyr__video-wrapper video {
+    object-fit: contain;
+  }
+}
+</style>
 </head>
+
 <body>
-  <div class="video-container">
-    <video autoplay playsinline muted id="player" controls preload="metadata"></video>
-  </div>
+<div class="player-container">
+  <div class="status" id="status">Connecting</div>
+  <video id="video" controls playsinline crossorigin="anonymous"
+         preload="auto"></video>
+</div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const video = document.getElementById("player");
-      const source = "https://papacito.cfd/m3u/now-3434343/live.m3u8?ft=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzbHVnIjoibm93LTM0MzQzNDMiLCJpYXQiOjE3OTI2MDgxMDEsImV4cCI6MTc5MjYzNjkwMSwiaXAiOiIxMDYuMjIxLjIzMC4xOTgifQ.qHsrahTv1gz5VFMtSNIM1KPvnqxOjy4dvQ1Wc5eXBeo";
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
 
-      const defaultOptions = {
-        autoplay: true,
-        controls: [
-          'play', 'rewind', 'fast-forward', 'progress', 'current-time',
-          'mute', 'volume', 'settings', 'fullscreen'
-        ],
-        settings: ['quality']
-      };
+<script>
+const STREAM =
+  "https://papacito.cfd/m3u/2006994/live.m3u8?ft=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzbHVnIjoiMjAwNjk5NCIsImlhdCI6MTc5Mjk1NzE1OCwiZXhwIjoxNzkyOTg1OTU4LCJpcCI6IjEwNi4yMTkuMjI2LjE5MSJ9.XiPsUo4OyB7mSjxadLQ8T3tkADxPK05iPppWK4-ORJ4";
 
-      let player;
+const video = document.getElementById("video");
+const status = document.getElementById("status");
 
-      function setupPlayer(hls, qualities = []) {
-        player = new Plyr(video, {
-          ...defaultOptions,
-          quality: qualities.length ? {
-            default: qualities[0],
-            options: qualities,
-            forced: true,
-            onChange: q => {
-              hls.levels.forEach((level, index) => {
-                if (level.height === q) {
-                  hls.currentLevel = index;
-                }
-              });
-            }
-          } : {}
-        });
+let hls = null;
+let player = null;
 
-        // 🔁 AUTO RESUME
-        setInterval(() => {
-          if (video.paused && video.readyState > 2) {
-            video.play().catch(()=>{});
-          }
-        }, 3000);
+function setStatus(message) {
+  status.textContent = message;
+}
 
-        // 🔊 AUTO UNMUTE (on first interaction)
-        const unmute = () => {
-          video.muted = false;
-          video.volume = 1;
-          document.removeEventListener("click", unmute);
-          document.removeEventListener("touchstart", unmute);
-        };
+function initializePlayer(qualityOptions = [0]) {
+  if (player) player.destroy();
 
-        document.addEventListener("click", unmute);
-        document.addEventListener("touchstart", unmute);
-      }
+  player = new Plyr(video, {
+    autoplay: false,
+    muted: false,
+    clickToPlay: true,
+    hideControls: true,
+    resetOnEnd: false,
+    keyboard: { focused: true, global: true },
+    tooltips: { controls: true, seek: true },
+    settings: ["quality", "speed"],
+    speed: {
+      selected: 1,
+      options: [0.5, 0.75, 1, 1.25, 1.5, 2]
+    },
+    quality: {
+      default: 0,
+      options: qualityOptions,
+      forced: true,
+      onChange: changeQuality
+    },
+    i18n: {
+      qualityLabel: { 0: "Auto" }
+    }
+  });
 
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          autoStartLoad: true
-        });
+  player.on("playing", () => setStatus("Playing"));
+  player.on("waiting", () => setStatus("Buffering"));
+  player.on("error", () => setStatus("Playback error"));
+  player.on("canplay", () => setStatus("Ready"));
+}
 
-        hls.loadSource(source);
-        hls.attachMedia(video);
+function changeQuality(height) {
+  if (!hls) return;
 
-        hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-          const availableQualities = data.levels.map(l => l.height).sort((a,b) => b - a);
-          video.play().catch(()=>{});
-          setupPlayer(hls, availableQualities);
-        });
+  if (height === 0) {
+    hls.currentLevel = -1;
+    return;
+  }
 
-        // 🔥 AUTO RECOVER ON ERROR
-        hls.on(Hls.Events.ERROR, function (_, data) {
-          if (data.fatal) {
-            hls.startLoad();
-          }
-        });
+  const index = hls.levels.findIndex(
+    level => level.height === height
+  );
 
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = source;
-        video.addEventListener("loadedmetadata", () => {
-          video.play().catch(()=>{});
-          setupPlayer(null);
-        });
+  if (index !== -1) {
+    hls.currentLevel = index;
+  }
+}
+
+function startPlayer() {
+  if (Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true,
+      capLevelToPlayerSize: false,
+      startLevel: -1,
+      maxBufferLength: 30
+    });
+
+    hls.loadSource(STREAM);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      const heights = [
+        ...new Set(
+          hls.levels
+            .map(level => level.height)
+            .filter(height => height > 0)
+        )
+      ].sort((a, b) => a - b);
+
+      initializePlayer([0, ...heights]);
+      setStatus("Ready");
+    });
+
+    hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+      if (hls.autoLevelEnabled && hls.levels[data.level]) {
+        setStatus("Auto · " + hls.levels[data.level].height + "p");
       }
     });
-  </script>
-  <script>(function(s){s.dataset.zone='11514537',s.src='https://llvpn.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) {
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          setStatus("Network error");
+          hls.startLoad();
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          setStatus("Recovering playback");
+          hls.recoverMediaError();
+        } else {
+          setStatus("Stream unavailable");
+          hls.destroy();
+        }
+      }
+    });
+
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = STREAM;
+    initializePlayer([0]);
+    setStatus("Ready");
+  } else {
+    setStatus("HLS not supported");
+  }
+}
+
+startPlayer();
+
+window.addEventListener("beforeunload", () => {
+  if (hls) hls.destroy();
+});
+</script>
 </body>
+  <script>(function(s){s.dataset.zone='11514537',s.src='https://llvpn.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+
 </html>
